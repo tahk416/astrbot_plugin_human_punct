@@ -1,6 +1,19 @@
 name: astrbot_plugin_human_punct
-desc: 发送前把回复标点洗得更像真人打字：去句号、逗号变空格。覆盖正常回复与主动消息两条链路
-version: v1.0.0
+display_name: 活人标点清洗
+desc: 发送前把回复标点洗得更像真人打字：句号删掉、逗号/分号变空格。问号叹号保留，半角标点智能保护（版本号 1.2.6、千分位 1,000、URL、文件名不误伤），代码块整段跳过。挂在 on_decorating_result 钩子最后执行（priority=-100），与表情包等装饰插件不冲突；普通回复和主动消息（astrbot_plugin_proactive_chat）两条链路都覆盖。即装即用，配置里六个开关可微调。
+version: 1.0.1
 author: 大肥鱼
-repo: local
-dependencies: []
+repo: https://github.com/tahk416/astrbot_plugin_human_punct
+astrbot_version: ">=4.17.0"
+support_platforms:
+  - aiocqhttp
+  - qq_official
+  - telegram
+  - lark
+  - dingtalk
+  - kook
+social_link: https://github.com/tahk416
+tags:
+  - 拟人化
+  - 标点清洗
+  - 聊天增强
