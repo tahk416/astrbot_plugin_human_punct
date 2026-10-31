@@ -1,4 +1,4 @@
-# astrbot_plugin_human_punct
+# 鱼洗标点（astrbot_plugin_human_punct）
 
 让 AstrBot 的回复**更像真人打字**：发送前清洗标点——句号删掉、逗号变空格。
 
