@@ -1,0 +1,6 @@
+name: astrbot_plugin_human_punct
+desc: 发送前把回复标点洗得更像真人打字：去句号、逗号变空格。覆盖正常回复与主动消息两条链路
+version: v1.0.0
+author: 大肥鱼
+repo: local
+dependencies: []

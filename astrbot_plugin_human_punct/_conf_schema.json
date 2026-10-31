@@ -1,0 +1,44 @@
+{
+    "enable": {
+        "description": "总开关",
+        "type": "bool",
+        "hint": "关闭后本插件不做任何清洗",
+        "default": true
+    },
+    "drop_period": {
+        "description": "删除句号「。」",
+        "type": "bool",
+        "hint": "句中的句号变空格，句尾的直接去掉",
+        "default": true
+    },
+    "comma_to_space": {
+        "description": "逗号「，」变空格",
+        "type": "bool",
+        "hint": "真人打字很少用逗号，多半直接敲空格",
+        "default": true
+    },
+    "semicolon_to_space": {
+        "description": "分号「；」变空格",
+        "type": "bool",
+        "hint": "",
+        "default": true
+    },
+    "halfwidth_too": {
+        "description": "同时处理半角 . , ;",
+        "type": "bool",
+        "hint": "只在两侧不挨英文/数字时替换，URL、版本号(1.2.6)、千分位(1,000)不受影响",
+        "default": true
+    },
+    "skip_code_block": {
+        "description": "跳过含代码块(```)的回复",
+        "type": "bool",
+        "hint": "代码示例里的标点保持原样",
+        "default": true
+    },
+    "whitespace_collapse": {
+        "description": "折叠多余空格/空行",
+        "type": "bool",
+        "hint": "替换完顺手收拾连排空格，保留换行",
+        "default": true
+    }
+}
