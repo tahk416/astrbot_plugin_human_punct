@@ -167,11 +167,38 @@ def split_segments(text: str, min_chars: int, max_chars: int) -> list[str]:
     return merged
 
 
+def _pack_lines(lines: list[str], pack_limit: int) -> list[str]:
+    """把短行打包成 ≤pack_limit 的组件，行间用 \\n 连接。
+
+    目的：两条发送链路都会按 \\n 再拆回去——
+    · 普通回复：核心 respond 逐 Plain 组件分条发送（组件内 ≤80 字还会被它的
+      分段正则按 \\n 拆开），每条一个气泡；
+    · 主动消息：proactive_chat 的分段器对 ≤80 字组件按 \\n 拆分，组件数变多
+      → 触发它的"分段连发"模式，逐条发送带间隔。
+    直接把每行做成一个组件反而不行：两条链路都会把多个 Plain 合并成一条消息。
+    """
+    packs: list[str] = []
+    buf = ""
+    for ln in lines:
+        if not buf:
+            buf = ln
+            continue
+        cand = f"{buf}\n{ln}"
+        if len(cand) <= pack_limit:
+            buf = cand
+        else:
+            packs.append(buf)
+            buf = ln
+    if buf:
+        packs.append(buf)
+    return packs
+
+
 @register(
     "astrbot_plugin_human_punct",
     "大肥鱼",
     "发送前清洗标点更像真人：去句号、逗号变空格",
-    "1.1.0",
+    "1.1.1",
     "local",
 )
 class HumanPunct(Star):
@@ -199,6 +226,7 @@ class HumanPunct(Star):
             min_chars, max_chars = 80, 50
         min_chars = max(20, min_chars)
         max_chars = max(10, min(max_chars, min_chars))  # 段长不能超过触发线
+        # 打包上限固定 80：两条发送链路对"组件内再拆分"的阈值都是 80
         return enable, min_chars, max_chars
 
     @filter.on_decorating_result(priority=-100)
@@ -211,6 +239,11 @@ class HumanPunct(Star):
 
         cfg = self._cfg()
         seg_on, seg_min, seg_max = self._segment_cfg
+        # 主动消息链路（proactive_chat 伪事件）会把整条链一次发出，只有它自己的
+        # 分段器把组件数变多才逐条连发；而它的分段正则认 \n、核心 respond 逐组件
+        # 分条发送。所以：主动事件 → 打包成 ≤80 字多行组件（被 \n 拆开）；
+        # 普通回复 → 每段一个组件（被 respond 逐条发）。
+        is_proactive = type(event).__name__ == "ProactiveMessageEvent"
         cleaned_n = 0
         split_n = 0
         new_chain: list = []
@@ -225,7 +258,10 @@ class HumanPunct(Star):
                 if seg_on and len(new) > seg_min:
                     segs = split_segments(new, seg_min, seg_max)
                     if len(segs) > 1:
-                        new_chain.extend(Plain(seg) for seg in segs)
+                        if is_proactive:
+                            new_chain.extend(Plain(p) for p in _pack_lines(segs, 80))
+                        else:
+                            new_chain.extend(Plain(s) for s in segs)
                         split_n += 1
                         continue
                 comp.text = new
@@ -237,5 +273,5 @@ class HumanPunct(Star):
             result.chain = new_chain
         if cleaned_n or split_n:
             logger.debug(
-                f"[human_punct] 清洗 {cleaned_n} 段，长文分段 {split_n} 段喵"
+                f"[human_punct] 清洗 {cleaned_n} 段，长文打包 {split_n} 组分条发喵"
             )

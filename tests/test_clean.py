@@ -127,5 +127,38 @@ print(("PASS" if ok else "FAIL"), f"换行按行拆: {len(segs3)} 段")
 if not ok:
     fails += 1
 
+# ---------- v1.1.1 _pack_lines（主动消息链路打包） ----------
+print("\n=== _pack_lines ===")
+pack_cases = [
+    (["短", "也短"], 80, ["短\n也短"]),                      # 能并则并
+    (["一" * 50, "二" * 50], 80, ["一" * 50, "二" * 50]),    # 并不下就分开
+    ([], 80, []),
+]
+for lines, lim, want in pack_cases:
+    got = hp._pack_lines(lines, lim)
+    ok = got == want
+    print(("PASS" if ok else "FAIL"), f"pack {lines[:1]}... -> {len(got)} 组")
+    if not ok:
+        fails += 1
+        print("   got:", got, "want:", want)
+
+# 打包后每组件 ≤80 且信息不丢
+segs_long = hp.split_segments(long_text, 80, 50)
+packed = hp._pack_lines(segs_long, 80)
+ok = all(len(p) <= 80 for p in packed) and sum(len(p) for p in packed) >= len(long_text) - 4 * len(packed)
+print(("PASS" if ok else "FAIL"), f"打包 {len(packed)} 组件，均 ≤80 字")
+if not ok:
+    fails += 1
+# 模拟 proactive 分段器：≤80 组件按 \n 拆回多条
+import re as _re
+unseg = []
+for p in packed:
+    unseg += _re.findall(r".*?[。？！~…\n]+|.+$", p, _re.DOTALL | _re.MULTILINE)
+unseg = [s for s in (x.strip() for x in unseg) if s]
+ok = len(unseg) == len(segs_long)
+print(("PASS" if ok else "FAIL"), f"proactive \\n 拆回 {len(unseg)} 条（原 {len(segs_long)} 段）")
+if not ok:
+    fails += 1
+
 print(f"\n总失败 {fails}")
 sys.exit(1 if fails else 0)
