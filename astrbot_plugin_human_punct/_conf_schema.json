@@ -2,7 +2,7 @@
     "enable": {
         "description": "总开关",
         "type": "bool",
-        "hint": "关闭后本插件不做任何清洗",
+        "hint": "关闭后本插件不做任何清洗与分段",
         "default": true
     },
     "drop_period": {
@@ -32,7 +32,7 @@
     "skip_code_block": {
         "description": "跳过含代码块(```)的回复",
         "type": "bool",
-        "hint": "代码示例里的标点保持原样",
+        "hint": "代码示例里的标点保持原样，也不分段",
         "default": true
     },
     "whitespace_collapse": {
@@ -40,5 +40,23 @@
         "type": "bool",
         "hint": "替换完顺手收拾连排空格，保留换行",
         "default": true
+    },
+    "segment_enable": {
+        "description": "长回复自动分段连发",
+        "type": "bool",
+        "hint": "清洗后仍超过触发字数的长文本，按空格/换行切成多条短消息逐条发送（带打字间隔）。关掉的话长回复会整坨发出",
+        "default": true
+    },
+    "segment_min_chars": {
+        "description": "分段触发字数",
+        "type": "int",
+        "hint": "清洗后文本超过这个长度才拆条（默认 80，与 AstrBot 核心分段阈值一致）",
+        "default": 80
+    },
+    "segment_max_chars": {
+        "description": "每条短消息上限字数",
+        "type": "int",
+        "hint": "拆出来的每条不超过这个长度（默认 50）",
+        "default": 50
     }
 }

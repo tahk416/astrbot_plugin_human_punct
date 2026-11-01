@@ -80,5 +80,52 @@ print("PASS halfwidth=off" if got == exp else f"FAIL halfwidth=off: {got!r} 期�
 if got != exp:
     fails += 1
 
-print(f"\n总用例 {len(cases)+1} 失败 {fails}")
+# ---------- v1.1 分段测试 ----------
+print("\n=== split_segments ===")
+seg_cases = [
+    # (输入文本, min, max, 期望段数或校验函数说明)
+    ("短文本不分段", 80, 50, 1),                      # 低于触发线 → 原样
+    ("嗯 本鱼知道了", 80, 50, 1),
+]
+for src, mn, mx, want_n in seg_cases:
+    segs = hp.split_segments(src, mn, mx)
+    ok = len(segs) == want_n
+    print(("PASS" if ok else "FAIL"), repr(src), "->", segs)
+    if not ok:
+        fails += 1
+
+# 长文本：模拟截图里那种 ~100 字回复
+long_text = "好 那本鱼现在就趴在这 有事你喊一声 你悠哉悠哉 一起看海 一起聊聊天 主人 你悠哉悠哉 一起看海 一起聊 那本鱼就趴着等你说句话 主人你快点回来 本鱼给你留了半条鱼干 别在外面浪太久 记得按时吃饭 别老熬夜打游戏 熬夜对眼睛不好 对鱼鳍也不好"
+segs = hp.split_segments(long_text, 80, 50)
+checks = [
+    (len(segs) > 1, f"长文应拆多条，实际 {len(segs)} 条"),
+    (all(len(s) <= 50 for s in segs), f"每条应 ≤50 字: {[len(s) for s in segs]}"),
+    (" ".join(segs).replace("  ", " ").strip() == long_text.strip() or
+     sum(len(s) for s in segs) >= len(long_text) - 4 * len(segs),
+     "内容不应大量丢失"),
+]
+for ok, msg in checks:
+    print(("PASS" if ok else "FAIL"), msg)
+    if not ok:
+        fails += 1
+for s in segs:
+    print("   段:", s)
+
+# 无空格的超长串：硬切不崩
+no_space = "鱼" * 200
+segs2 = hp.split_segments(no_space, 80, 50)
+ok = all(len(s) <= 50 for s in segs2) and "".join(segs2) == no_space
+print(("PASS" if ok else "FAIL"), f"无空格长串硬切 {len(segs2)} 段，内容完整")
+if not ok:
+    fails += 1
+
+# 换行优先
+multi = ("第一行内容" + "字" * 20 + "\n" + "第二行内容" + "字" * 20 + "\n" + "第三行" + "字" * 25)
+segs3 = hp.split_segments(multi, 40, 50)
+ok = len(segs3) >= 2 and all("\n" not in s for s in segs3)
+print(("PASS" if ok else "FAIL"), f"换行按行拆: {len(segs3)} 段")
+if not ok:
+    fails += 1
+
+print(f"\n总失败 {fails}")
 sys.exit(1 if fails else 0)

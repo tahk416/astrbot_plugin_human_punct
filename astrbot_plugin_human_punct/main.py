@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*-
 """human_punct: 发送前把回复洗得更像真人打字。
 
-默认规则：
+标点清洗（v1.0）：
   1. 句号「。」删除（句中变空格，句尾直接没了）；半角「.」仅当
      不属于 URL/版本号/文件名形态时才当句号处理
   2. 逗号「，」变空格；半角「,」保护 1,000 这类千分位
   3. 分号「；」变空格（半角「;」同理保护）
   4. 折叠连排空格、去行尾悬挂空格、压缩多余空行、去整段首尾空白
 
+拟人分段（v1.1 新增）：
+  清洗后仍超过 min_chars（默认 80）的长文本，按空格/换行切成多条
+  ≤max_chars（默认 50）的短消息，替换消息链——AstrBot 核心的
+  respond 阶段会把多个 Plain 组件逐条发送并带 1.5~3.5s 间隔。
+  背景：核心自带的"分段回复"只处理 ≤80 字的短文本（>80 直接原样
+  发送），而标点清洗又把句号刀口洗没了，长回复会整坨发出。
+
 挂载：on_decorating_result 钩子，priority=-100 排在最后执行——
 正常回复走核心 ResultDecorateStage、主动消息走 proactive_chat 的装饰钩子，
 两条链路都派发该事件；meme_manager(99999) / AstrNa(1000) 等先装饰完，
 本插件最后统一洗文本。
 
-安全边界：含代码块(```)的整段跳过；清洗后整段为空则还原原文。
+安全边界：含代码块(```)的整段跳过（也不分段）；清洗后整段为空则还原原文。
 """
 
 import re
@@ -118,11 +125,53 @@ def clean_text(text: str, cfg: dict) -> str | None:
     return t
 
 
+def split_segments(text: str, min_chars: int, max_chars: int) -> list[str]:
+    """清洗后的长文本按换行/空格切成多条 ≤max_chars 的短消息。
+
+    返回段数 <=1 表示不需要（或无法）分段，调用方保持原样。
+    """
+    if len(text) <= min_chars:
+        return [text]
+
+    pieces: list[str] = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if len(line) <= max_chars:
+            pieces.append(line)
+            continue
+        buf = ""
+        for word in line.split(" "):
+            cand = word if not buf else f"{buf} {word}"
+            if len(cand) <= max_chars:
+                buf = cand
+                continue
+            if buf:
+                pieces.append(buf)
+            # 单个词就超长（无空格可切）：硬切
+            while len(word) > max_chars:
+                pieces.append(word[:max_chars])
+                word = word[max_chars:]
+            buf = word
+        if buf:
+            pieces.append(buf)
+
+    # 合并末尾过碎的短段（避免"…了 然"这种单字尾巴）
+    merged: list[str] = []
+    for p in pieces:
+        if merged and len(p) < 6 and len(merged[-1]) + len(p) + 1 <= max_chars:
+            merged[-1] = f"{merged[-1]} {p}"
+        else:
+            merged.append(p)
+    return merged
+
+
 @register(
     "astrbot_plugin_human_punct",
     "大肥鱼",
     "发送前清洗标点更像真人：去句号、逗号变空格",
-    "1.0.0",
+    "1.1.0",
     "local",
 )
 class HumanPunct(Star):
@@ -140,6 +189,18 @@ class HumanPunct(Star):
             "whitespace_collapse": bool(self.config.get("whitespace_collapse", True)),
         }
 
+    @property
+    def _segment_cfg(self) -> tuple[bool, int, int]:
+        enable = bool(self.config.get("segment_enable", True))
+        try:
+            min_chars = int(self.config.get("segment_min_chars", 80))
+            max_chars = int(self.config.get("segment_max_chars", 50))
+        except (TypeError, ValueError):
+            min_chars, max_chars = 80, 50
+        min_chars = max(20, min_chars)
+        max_chars = max(10, min(max_chars, min_chars))  # 段长不能超过触发线
+        return enable, min_chars, max_chars
+
     @filter.on_decorating_result(priority=-100)
     async def humanize_before_send(self, event: AstrMessageEvent):
         if not bool(self.config.get("enable", True)):
@@ -149,12 +210,32 @@ class HumanPunct(Star):
             return
 
         cfg = self._cfg()
-        changed = 0
+        seg_on, seg_min, seg_max = self._segment_cfg
+        cleaned_n = 0
+        split_n = 0
+        new_chain: list = []
         for comp in result.chain:
             if isinstance(comp, Plain) and comp.text:
                 new = clean_text(comp.text, cfg)
-                if new is not None and new != comp.text:
-                    comp.text = new
-                    changed += 1
-        if changed:
-            logger.debug(f"[human_punct] 已清洗 {changed} 段文本更像真人喵")
+                if new is None:
+                    new_chain.append(comp)
+                    continue
+                if new != comp.text:
+                    cleaned_n += 1
+                if seg_on and len(new) > seg_min:
+                    segs = split_segments(new, seg_min, seg_max)
+                    if len(segs) > 1:
+                        new_chain.extend(Plain(seg) for seg in segs)
+                        split_n += 1
+                        continue
+                comp.text = new
+                new_chain.append(comp)
+            else:
+                new_chain.append(comp)
+
+        if split_n:
+            result.chain = new_chain
+        if cleaned_n or split_n:
+            logger.debug(
+                f"[human_punct] 清洗 {cleaned_n} 段，长文分段 {split_n} 段喵"
+            )

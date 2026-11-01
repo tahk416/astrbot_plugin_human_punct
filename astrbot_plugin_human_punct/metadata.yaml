@@ -1,7 +1,7 @@
 name: astrbot_plugin_human_punct
 display_name: 鱼洗标点
-desc: 发送前把回复标点洗得更像真人打字：句号删掉、逗号/分号变空格。问号叹号保留，半角标点智能保护（版本号 1.2.6、千分位 1,000、URL、文件名不误伤），代码块整段跳过。挂在 on_decorating_result 钩子最后执行（priority=-100），与表情包等装饰插件不冲突；普通回复和主动消息（astrbot_plugin_proactive_chat）两条链路都覆盖。即装即用，配置里六个开关可微调。
-version: 1.0.2
+desc: 发送前把回复标点洗得更像真人打字：句号删掉、逗号/分号变空格。问号叹号保留，半角标点智能保护（版本号 1.2.6、千分位 1,000、URL、文件名不误伤），代码块整段跳过。v1.1 新增长回复自动分段连发：清洗后超 80 字的长文按空格拆成 ≤50 字的多条短消息逐条发送（带打字间隔），补上标点被清洗后核心分段器失去刀口的缺口。挂在 on_decorating_result 钩子最后执行（priority=-100），与表情包等装饰插件不冲突；普通回复和主动消息（astrbot_plugin_proactive_chat）两条链路都覆盖。即装即用，配置里九个开关可微调。
+version: 1.1.0
 author: 大肥鱼
 repo: https://github.com/tahk416/astrbot_plugin_human_punct
 astrbot_version: ">=4.17.0"
